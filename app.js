@@ -4,7 +4,7 @@ let state = {
     currentUser: null, // { username, nama, role }
     activeTab: 'presensi',
     selectedSesi: localStorage.getItem('last_selected_sesi') || DEFAULT_SESI,
-    apiUrl: 'https://script.google.com/macros/s/AKfycby8ELQBpOXu01xHpNVpkPwLGeUnLCSi_g3iOGKtB41Br9gYJmtNpsSR1VpsltJoW4hs/exec',
+    apiUrl: 'https://script.google.com/macros/s/AKfycbxwOn_au_V-l8v9lk712F6yXtNKt53MVkEq-4J7ws3oEk9JU7jq0EQ8LH8n9lgwaLXogQ/exec',
     html5QrcodeScanner: null,
     // DEMO INITIAL DATA (Bisa langsung diuji coba sebelum koneksi API)
     dataMaster: [
