@@ -1,10 +1,11 @@
 const DEFAULT_SESI = "Sesi 1 (Registrasi)";
 
 let state = {
-    currentUser: null,
+    // Ambil session user yang tersimpan di sessionStorage (jika ada)
+    currentUser: JSON.parse(sessionStorage.getItem('session_user')) || null,
     activeTab: 'presensi',
     selectedSesi: localStorage.getItem('last_selected_sesi') || DEFAULT_SESI,
-    apiUrl: 'https://script.google.com/macros/s/AKfycbzL-c3GHqNbpgRIzL2vqM-erd2KAxoGlgXrqA7S_bLBJJlMMKSUuY1LWIZIhG2DpY8__A/exec',
+    apiUrl: 'https://script.google.com/macros/s/AKfycbxwOn_au_V-l8v9lk712F6yXtNKt53MVkEq-4J7ws3oEk9JU7jq0EQ8LH8n9lgwaLXogQ/exec',
     html5QrcodeScanner: null,
     dataMaster: [],
     dataPresensi: [],
@@ -22,10 +23,31 @@ window.addEventListener('DOMContentLoaded', () => {
         document.getElementById('belumAbsenSesiSelect').value = state.selectedSesi;
     }
 
+    // CEK SESI LOGIN SAAT HALAMAN DILOAD / REFRESH
+    checkExistingSession();
+
     if (state.apiUrl) {
         fetchInitialDataFromGAS();
     }
 });
+
+// Fungsi untuk memeriksa dan memulihkan sesi login saat refresh
+function checkExistingSession() {
+    if (state.currentUser) {
+        // Tampilkan elemen header user
+        document.getElementById('userInfoHeader')?.classList.remove('hidden');
+        document.getElementById('headerName').innerText = state.currentUser.nama;
+        document.getElementById('headerRole').innerText = state.currentUser.role;
+        
+        // Pindahkan dari halaman login ke dashboard
+        document.getElementById('loginSection')?.classList.add('hidden');
+        document.getElementById('dashboardSection')?.classList.remove('hidden');
+
+        // Render navigasi tab & buka tab presensi
+        renderNavTabs();
+        switchTab('presensi');
+    }
+}
 
 async function fetchInitialDataFromGAS() {
     if (!state.apiUrl) return;
@@ -37,6 +59,13 @@ async function fetchInitialDataFromGAS() {
             if (result.presensi) state.dataPresensi = result.presensi;
             if (result.akun && result.akun.length > 0) state.dataAkun = result.akun;
             console.log("Data berhasil dimuat dari Google Sheets!");
+            
+            // Re-render tampilan setelah data dari GAS masuk
+            if (state.currentUser) {
+                if (state.activeTab === 'presensi') renderRecentPresensiLog();
+                if (state.activeTab === 'belumAbsen') renderBelumAbsenGrid();
+                if (state.activeTab === 'rekap') renderRekapDataGrid();
+            }
         }
     } catch (err) {
         console.warn("Gagal terhubung ke API backend, menggunakan data lokal.", err);
@@ -68,8 +97,12 @@ function handleLogin(e) {
     );
 
     if (found) {
-        state.currentUser = { username: found.Username, nama: found.Nama, role: found.Role };
+        const userObj = { username: found.Username, nama: found.Nama, role: found.Role };
+        state.currentUser = userObj;
         
+        // FITUR UTAMA: SIMPAN KE SESSIONSTORAGE (Tahan refresh, hapus saat tab ditutup)
+        sessionStorage.setItem('session_user', JSON.stringify(userObj));
+
         document.getElementById('userInfoHeader').classList.remove('hidden');
         document.getElementById('headerName').innerText = found.Nama;
         document.getElementById('headerRole').innerText = found.Role;
@@ -99,11 +132,16 @@ function handleLogin(e) {
 function handleLogout() {
     stopScanner();
     state.currentUser = null;
-    document.getElementById('loginUsername').value = '';
-    document.getElementById('loginPassword').value = '';
-    document.getElementById('userInfoHeader').classList.add('hidden');
-    document.getElementById('dashboardSection').classList.add('hidden');
-    document.getElementById('loginSection').classList.remove('hidden');
+    
+    // HAPPUS SESI DARi SESSIONSTORAGE SAAT LOGOUT MANUAL
+    sessionStorage.removeItem('session_user');
+
+    if (document.getElementById('loginUsername')) document.getElementById('loginUsername').value = '';
+    if (document.getElementById('loginPassword')) document.getElementById('loginPassword').value = '';
+    
+    document.getElementById('userInfoHeader')?.classList.add('hidden');
+    document.getElementById('dashboardSection')?.classList.add('hidden');
+    document.getElementById('loginSection')?.classList.remove('hidden');
 }
 
 function renderNavTabs() {
@@ -227,7 +265,6 @@ function handleManualSubmit(e) {
     document.getElementById('manualIdInput').value = '';
 }
 
-// LOGIKA PRESENSI ANTI-DUPLIKAT (MEMBERI UPDATE STATUS TERAKHIR)
 function processPresensi(scannedId, targetStatus = 'Hadir') {
     const participant = state.dataMaster.find(m => String(m.ID).toLowerCase() === scannedId.toLowerCase());
 
@@ -242,7 +279,6 @@ function processPresensi(scannedId, targetStatus = 'Hadir') {
         return;
     }
 
-    // Cari index presensi peserta di sesi yang sama
     const existingIndex = state.dataPresensi.findIndex(p => p.ID === participant.ID && p.Sesi === state.selectedSesi);
 
     if (existingIndex !== -1) {
@@ -258,12 +294,10 @@ function processPresensi(scannedId, targetStatus = 'Hadir') {
             return;
         }
 
-        // Jika status berubah (misal Izin -> Hadir), PERBARUI data lama
         state.dataPresensi[existingIndex].Status = targetStatus;
         state.dataPresensi[existingIndex].Waktu = new Date().toLocaleString('id-ID');
         state.dataPresensi[existingIndex].Pengabsen = state.currentUser ? state.currentUser.username : 'petugas';
     } else {
-        // Data baru
         const newEntry = {
             ID: participant.ID,
             Nama: participant.Nama,
@@ -280,7 +314,6 @@ function processPresensi(scannedId, targetStatus = 'Hadir') {
     renderRecentPresensiLog();
     if (state.activeTab === 'belumAbsen') renderBelumAbsenGrid();
 
-    // Kirim sync ke Google Sheets (Backend akan memperbarui row jika sudah ada)
     if (state.apiUrl) {
         fetch(state.apiUrl, {
             method: 'POST',
@@ -456,7 +489,6 @@ function renderBelumAbsenGrid() {
     const targetSesiElem = document.getElementById('belumAbsenSesiSelect');
     const targetSesi = targetSesiElem ? targetSesiElem.value : state.selectedSesi;
 
-    // Filter peserta yang sudah absen/izin di sesi ini
     const attendedIds = state.dataPresensi
         .filter(p => p.Sesi === targetSesi)
         .map(p => p.ID);
