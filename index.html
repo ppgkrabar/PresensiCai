@@ -3,6 +3,340 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Presensi CAI 2026</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome CDN -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- HTML5 QR Code Scanner CDN -->
+    <script src="https://unpkg.com/html5-qrcode"></script>
+    <!-- SweetAlert2 CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <!-- Google Fonts Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- External Custom CSS -->
+    <link rel="stylesheet" href="style.css">
+</head>
+<body class="bg-slate-100 min-h-screen text-slate-800 flex flex-col">
+
+    <!-- TOP NAVIGATION BAR -->
+    <header class="bg-indigo-700 text-white shadow-lg sticky top-0 z-40">
+        <div class="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center">
+            <div class="flex items-center space-x-3">
+                <div class="bg-white/20 p-2 rounded-lg">
+                    <i class="fa-solid fa-qrcode text-2xl text-amber-300"></i>
+                </div>
+                <div>
+                    <h1 class="font-bold text-lg leading-tight">Presensi Kegiatan</h1>
+                    <p class="text-xs text-indigo-200" id="userBadge">Sistem Presensi Digital</p>
+                </div>
+            </div>
+            
+            <div id="userInfoHeader" class="hidden flex items-center space-x-3">
+                <div class="text-right hidden sm:block">
+                    <p class="text-sm font-semibold" id="headerName">-</p>
+                    <span class="text-xs bg-indigo-900 px-2 py-0.5 rounded text-indigo-200" id="headerRole">-</span>
+                </div>
+                <button onclick="handleLogout()" class="bg-rose-600 hover:bg-rose-700 text-white px-3 py-1.5 rounded-lg text-sm transition flex items-center gap-1 shadow">
+                    <i class="fa-solid fa-right-from-bracket"></i> <span class="hidden sm:inline">Keluar</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="flex-grow max-w-7xl w-full mx-auto p-4 md:p-6">
+
+        <!-- 1. HALAMAN LOGIN -->
+        <section id="loginSection" class="max-w-md mx-auto my-8 md:my-16">
+            <div class="glass-card rounded-2xl p-6 md:p-8 shadow-xl border border-indigo-100">
+                <div class="text-center mb-6">
+                    <div class="w-16 h-16 bg-indigo-100 text-indigo-600 rounded-full flex items-center justify-center mx-auto mb-3 text-2xl">
+                        <i class="fa-solid fa-user-lock"></i>
+                    </div>
+                    <h2 class="text-2xl font-bold text-slate-800">Masuk Akun</h2>
+                    <p class="text-sm text-slate-500 mt-1">Masukkan username & password petugas</p>
+                </div>
+
+                <form id="loginForm" onsubmit="handleLogin(event)" class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">Username</label>
+                        <div class="relative">
+                            <i class="fa-solid fa-user absolute left-3 top-3 text-slate-400"></i>
+                            <input type="text" id="loginUsername" required class="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-sm" placeholder="Masukkan username">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">Password</label>
+                        <div class="relative">
+                            <i class="fa-solid fa-lock absolute left-3 top-3 text-slate-400"></i>
+                            <input type="password" id="loginPassword" required class="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-sm" placeholder="••••••••">
+                        </div>
+                    </div>
+                    <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2.5 rounded-xl transition shadow-lg shadow-indigo-200">
+                        Masuk Sistem
+                    </button>
+                </form>
+            </div>
+        </section>
+
+        <!-- 2. DASHBOARD UTAMA (ADMIN & PETUGAS) -->
+        <section id="dashboardSection" class="hidden space-y-6">
+            
+            <!-- Dynamic Navigation Tabs -->
+            <div class="bg-white rounded-2xl p-2 shadow-sm border border-slate-200 overflow-x-auto">
+                <nav id="navTabs" class="flex space-x-1 min-w-max">
+                    <!-- Nav items rendered dynamically via JS based on role -->
+                </nav>
+            </div>
+
+            <!-- TAB 1: PRESENSI QR CODE & MANUAL -->
+            <div id="tabPresensi" class="tab-content space-y-6">
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    
+                    <!-- Control Panel (Left Column) -->
+                    <div class="lg:col-span-1 space-y-6">
+                        <!-- Sesi Picker Card -->
+                        <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
+                            <label class="block text-sm font-semibold text-slate-700 mb-2 flex items-center gap-2">
+                                <i class="fa-solid fa-calendar-check text-indigo-600"></i>
+                                Pilih Sesi Kegiatan
+                            </label>
+                            <select id="sesiSelect" onchange="handleSesiChange(this.value)" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2.5 text-sm font-medium focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none">
+                                <option value="Sesi 1 (Registrasi)">Sesi 1 (Registrasi)</option>
+                                <option value="Sesi 2 (Malam)">Sesi 2 (Malam)</option>
+                                <option value="Sesi 3 (Pagi)">Sesi 3 (Pagi)</option>
+                                <option value="Sesi FGD">Sesi FGD</option>
+                            </select>
+                            <p class="text-xs text-slate-500 mt-2">
+                                <i class="fa-solid fa-circle-info text-amber-500"></i> Otomatis memilih sesi terakhir yang dipakai.
+                            </p>
+                        </div>
+
+                        <!-- Manual Input Card -->
+                        <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
+                            <h3 class="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-2">
+                                <i class="fa-solid fa-keyboard text-indigo-600"></i>
+                                Input ID Manual (Gagal Scan)
+                            </h3>
+                            <form onsubmit="handleManualSubmit(event)" class="space-y-3">
+                                <div>
+                                    <input type="text" id="manualIdInput" placeholder="Masukkan ID Peserta (contoh: P001)" class="w-full border border-slate-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-indigo-500">
+                                </div>
+                                <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2.5 rounded-xl text-sm transition shadow">
+                                    Simpan Presensi Manual
+                                </button>
+                            </form>
+                        </div>
+
+                        <!-- WordPress View Modal Trigger -->
+                        <div class="bg-amber-50 border border-amber-200 p-5 rounded-2xl">
+                            <h4 class="font-semibold text-amber-800 text-sm mb-1">
+                                <i class="fa-brands fa-wordpress mr-1"></i> Halaman Publik Peserta
+                            </h4>
+                            <p class="text-xs text-amber-700 mb-3">Tampilkan halaman khusus berisi daftar peserta belum absen sesuai kategori sesi.</p>
+                            <button onclick="openWordPressViewModal()" class="w-full bg-amber-600 hover:bg-amber-700 text-white font-medium py-2 rounded-xl text-sm transition flex items-center justify-center gap-2 shadow-sm">
+                                <i class="fa-solid fa-arrow-up-right-from-square"></i> Buka View WordPress
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Scanner Area (Right Column) -->
+                    <div class="lg:col-span-2">
+                        <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex flex-col items-center">
+                            <div class="w-full flex justify-between items-center mb-4">
+                                <h3 class="font-semibold text-slate-800 flex items-center gap-2">
+                                    <i class="fa-solid fa-camera text-indigo-600"></i> Scanner QR Code Kamera
+                                </h3>
+                                <div class="flex gap-2">
+                                    <button id="btnStartCamera" onclick="startScanner()" class="bg-emerald-600 text-white text-xs px-3 py-1.5 rounded-lg hover:bg-emerald-700 transition">
+                                        <i class="fa-solid fa-power-off mr-1"></i> Aktifkan Kamera
+                                    </button>
+                                    <button id="btnStopCamera" onclick="stopScanner()" class="bg-slate-600 text-white text-xs px-3 py-1.5 rounded-lg hover:bg-slate-700 transition hidden">
+                                        <i class="fa-solid fa-stop mr-1"></i> Matikan Kamera
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- QR Reader Container -->
+                            <div class="w-full max-w-md bg-slate-900 rounded-xl overflow-hidden min-h-[280px] flex items-center justify-center relative">
+                                <div id="qr-reader" class="w-full"></div>
+                                <div id="qrPlaceholder" class="text-center p-6 text-slate-400">
+                                    <i class="fa-solid fa-qrcode text-5xl mb-2 opacity-50"></i>
+                                    <p class="text-sm">Kamera Nonaktif. Klik "Aktifkan Kamera" untuk scan QR Code.</p>
+                                </div>
+                            </div>
+
+                            <!-- Recent Scan History Log -->
+                            <div class="w-full mt-6">
+                                <h4 class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Riwayat Presensi Sesi Ini:</h4>
+                                <div id="recentPresensiList" class="space-y-2 max-h-48 overflow-y-auto">
+                                    <p class="text-xs text-slate-400 italic">Belum ada data presensi yang masuk.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+            <!-- TAB 2: REKAP DATA ABSEN (GRID DAPUKAN) - ADMIN ONLY -->
+            <div id="tabDataAbsen" class="tab-content hidden space-y-6">
+                <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex flex-wrap justify-between items-center gap-4">
+                    <div>
+                        <h2 class="text-lg font-bold text-slate-800">Rekapitulasi Presensi Peserta</h2>
+                        <p class="text-xs text-slate-500">Tampilan data dikelompokkan berdasarkan Dapukan</p>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <label class="text-xs font-medium text-slate-600">Filter Sesi:</label>
+                        <select id="rekapSesiFilter" onchange="renderRekapDataGrid()" class="bg-slate-50 border border-slate-300 rounded-lg px-3 py-1.5 text-xs font-medium outline-none">
+                            <option value="ALL">Semua Sesi</option>
+                            <option value="Sesi 1 (Registrasi)">Sesi 1 (Registrasi)</option>
+                            <option value="Sesi 2 (Malam)">Sesi 2 (Malam)</option>
+                            <option value="Sesi 3 (Pagi)">Sesi 3 (Pagi)</option>
+                            <option value="Sesi FGD">Sesi FGD</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Grid Containers grouped by Dapukan -->
+                <div id="rekapGridContainer" class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <!-- Dynamic Grid per Dapukan -->
+                </div>
+            </div>
+
+            <!-- TAB 3: PESERTA BELUM ABSEN (DAPUKAN GRID + INSTANT EDIT) -->
+            <div id="tabBelumAbsen" class="tab-content hidden space-y-6">
+                <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex flex-wrap justify-between items-center gap-4">
+                    <div>
+                        <h2 class="text-lg font-bold text-slate-800">Daftar Peserta Belum Absen</h2>
+                        <p class="text-xs text-slate-500" id="belumAbsenCounterSubtitle">Pilih sesi kegiatan untuk menampilkan data peserta</p>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <span id="belumAbsenBadge" class="bg-rose-100 text-rose-700 font-bold px-3 py-1 rounded-full text-xs">
+                            Total Belum Absen: 0 Orang
+                        </span>
+                        <select id="belumAbsenSesiSelect" onchange="renderBelumAbsenGrid()" class="bg-indigo-50 border border-indigo-200 text-indigo-900 rounded-lg px-3 py-1.5 text-xs font-semibold outline-none">
+                            <option value="Sesi 1 (Registrasi)">Sesi 1 (Registrasi)</option>
+                            <option value="Sesi 2 (Malam)">Sesi 2 (Malam)</option>
+                            <option value="Sesi 3 (Pagi)">Sesi 3 (Pagi)</option>
+                            <option value="Sesi FGD">Sesi FGD</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Grid Containers grouped by Dapukan -->
+                <div id="belumAbsenGridContainer" class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <!-- Dynamic Grid per Dapukan with Direct Action -->
+                </div>
+            </div>
+
+            <!-- TAB 4: KELOLA AKUN (ADMIN ONLY) -->
+            <div id="tabKelolaAkun" class="tab-content hidden space-y-6">
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <!-- Form Tambah Akun -->
+                    <div class="lg:col-span-1 bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
+                        <h3 class="font-bold text-slate-800 text-base mb-4 flex items-center gap-2">
+                            <i class="fa-solid fa-user-plus text-indigo-600"></i> Tambah Akun Petugas
+                        </h3>
+                        <form onsubmit="handleAddAccount(event)" class="space-y-4">
+                            <div>
+                                <label class="block text-xs font-medium text-slate-700 mb-1">Nama Lengkap</label>
+                                <input type="text" id="accNama" required class="w-full border border-slate-300 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-slate-700 mb-1">Username</label>
+                                <input type="text" id="accUsername" required class="w-full border border-slate-300 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-slate-700 mb-1">Password</label>
+                                <input type="password" id="accPassword" required class="w-full border border-slate-300 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-slate-700 mb-1">Role Akun</label>
+                                <select id="accRole" class="w-full border border-slate-300 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500">
+                                    <option value="Petugas">Petugas</option>
+                                    <option value="Administrator">Administrator</option>
+                                </select>
+                            </div>
+                            <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2.5 rounded-xl text-sm transition shadow">
+                                Simpan Akun Baru
+                            </button>
+                        </form>
+                    </div>
+
+                    <!-- Daftar Akun -->
+                    <div class="lg:col-span-2 bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
+                        <h3 class="font-bold text-slate-800 text-base mb-4 flex items-center gap-2">
+                            <i class="fa-solid fa-users text-indigo-600"></i> Daftar Akun Terdaftar
+                        </h3>
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left text-xs border-collapse">
+                                <thead>
+                                    <tr class="bg-slate-100 text-slate-600 uppercase font-semibold">
+                                        <th class="p-3 rounded-l-lg">No</th>
+                                        <th class="p-3">Nama</th>
+                                        <th class="p-3">Username</th>
+                                        <th class="p-3 rounded-r-lg">Role</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="accountTableBody" class="divide-y divide-slate-100">
+                                    <!-- Rendered dynamically -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </section>
+
+    </main>
+
+    <!-- MODAL WORDPRESS / STANDALONE VIEW -->
+    <div id="wpModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
+        <div class="bg-white rounded-2xl max-w-4xl w-full max-h-[90vh] flex flex-col shadow-2xl overflow-hidden">
+            <div class="bg-indigo-800 text-white p-4 flex justify-between items-center">
+                <div class="flex items-center gap-2">
+                    <i class="fa-brands fa-wordpress text-2xl text-amber-300"></i>
+                    <div>
+                        <h3 class="font-bold text-sm">Halaman Ringkasan Belum Absen (WordPress View)</h3>
+                        <p class="text-xs text-indigo-200">Tampilan khusus untuk iframe / publikasi halaman web</p>
+                    </div>
+                </div>
+                <button onclick="closeWordPressViewModal()" class="text-white hover:bg-indigo-700 p-1 rounded-lg">
+                    <i class="fa-solid fa-xmark text-xl"></i>
+                </button>
+            </div>
+            
+            <div class="p-4 bg-slate-50 border-b flex items-center justify-between gap-4">
+                <div class="flex items-center gap-2">
+                    <span class="text-xs font-semibold text-slate-700">Kategori Sesi:</span>
+                    <select id="wpSesiSelect" onchange="renderWordPressViewData()" class="bg-white border border-slate-300 rounded-lg px-3 py-1.5 text-xs font-medium outline-none">
+                        <option value="Sesi 1 (Registrasi)">Sesi 1 (Registrasi)</option>
+                        <option value="Sesi 2 (Malam)">Sesi 2 (Malam)</option>
+                        <option value="Sesi 3 (Pagi)">Sesi 3 (Pagi)</option>
+                        <option value="Sesi FGD">Sesi FGD</option>
+                    </select>
+                </div>
+                <button onclick="window.print()" class="bg-slate-800 text-white text-xs px-3 py-1.5 rounded-lg hover:bg-slate-700">
+                    <i class="fa-solid fa-print mr-1"></i> Cetak / PDF
+                </button>
+            </div>
+
+            <div class="p-6 overflow-y-auto flex-grow space-y-6" id="wpContentContainer">
+                <!-- Grouped Grid by Dapukan rendered here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- External Custom JavaScript -->
+    <script src="app.js"></script>
+</body>
+</html><!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sistem Presensi QR Code</title>
     <!-- Tailwind CSS untuk Styling -->
     <script src="https://cdn.tailwindcss.com"></script>
