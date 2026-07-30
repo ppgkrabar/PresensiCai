@@ -1,1 +1,53 @@
-/* STREAMING_CHUNK:Configuring custom styles and animations... */body {font-family: 'Inter', sans-serif;}/* Glassmorphism Card Style */.glass-card {background: rgba(255, 255, 255, 0.95);backdrop-filter: blur(10px);border: 1px solid rgba(229, 231, 235, 0.8);}/* Custom Scrollbar */::-webkit-scrollbar {width: 6px;height: 6px;}::-webkit-scrollbar-track {background: #f1f5f9;}::-webkit-scrollbar-thumb {background: #cbd5e1;border-radius: 4px;}::-webkit-scrollbar-thumb:hover {background: #94a3b8;}/* QR Code Scanner video area fixes */#qr-reader video {object-fit: cover !important;border-radius: 0.75rem;}/* Print Optimization for WordPress View */@media print {body * {visibility: hidden;}#wpModal, #wpModal * {visibility: visible;}#wpModal {position: absolute;left: 0;top: 0;width: 100%;background: white !important;}}
+/* STREAMING_CHUNK:Configuring custom styles and animations... */
+body {
+    font-family: 'Inter', sans-serif;
+}
+
+/* Glassmorphism Card Style */
+.glass-card {
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(10px);
+    border: 1.5px solid rgba(229, 231, 235, 0.8);
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.05);
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+::-webkit-scrollbar-track {
+    background: #f1f5f9;
+}
+::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
+}
+
+/* QR Code Scanner video area fixes */
+#qr-reader video {
+    object-fit: cover !important;
+    border-radius: 0.75rem;
+}
+
+/* Print Optimization for WordPress View */
+@media print {
+    body * {
+        visibility: hidden;
+    }
+    #wpModal, #wpModal * {
+        visibility: visible;
+    }
+    #wpModal {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 100%;
+        background: white !important;
+        box-shadow: none !important;
+        border: none !important;
+    }
+}
