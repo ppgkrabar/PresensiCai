@@ -4,11 +4,10 @@ let state = {
     currentUser: null,
     activeTab: 'presensi',
     selectedSesi: localStorage.getItem('last_selected_sesi') || DEFAULT_SESI,
-    apiUrl: 'https://script.google.com/macros/s/AKfycbxf2FGZETM3Hx7AowtvkUowvH_ww3t6USmZnV_S5AbXvtS8B-n8D8j6slrjvYZCKUsi/exec',
+    apiUrl: 'https://script.google.com/macros/s/AKfycbzL-c3GHqNbpgRIzL2vqM-erd2KAxoGlgXrqA7S_bLBJJlMMKSUuY1LWIZIhG2DpY8__A/exec',
     html5QrcodeScanner: null,
     dataMaster: [],
     dataPresensi: [],
-    // Akun bawaan sistem
     dataAkun: [
         { Username: 'admin', Password: '123', Nama: 'Administrator Utama', Role: 'Administrator' },
         { Username: 'petugas', Password: '123', Nama: 'Petugas Lapangan', Role: 'Petugas' }
@@ -64,7 +63,6 @@ function handleLogin(e) {
         return;
     }
 
-    // Matching username (abaikan kapital/kecil) & password
     const found = state.dataAkun.find(a => 
         String(a.Username).toLowerCase() === u.toLowerCase() && String(a.Password) === p
     );
@@ -229,7 +227,8 @@ function handleManualSubmit(e) {
     document.getElementById('manualIdInput').value = '';
 }
 
-function processPresensi(scannedId) {
+// LOGIKA PRESENSI ANTI-DUPLIKAT (MEMBERI UPDATE STATUS TERAKHIR)
+function processPresensi(scannedId, targetStatus = 'Hadir') {
     const participant = state.dataMaster.find(m => String(m.ID).toLowerCase() === scannedId.toLowerCase());
 
     if (!participant) {
@@ -243,33 +242,45 @@ function processPresensi(scannedId) {
         return;
     }
 
-    const alreadyIn = state.dataPresensi.some(p => p.ID === participant.ID && p.Sesi === state.selectedSesi && p.Status === 'Hadir');
+    // Cari index presensi peserta di sesi yang sama
+    const existingIndex = state.dataPresensi.findIndex(p => p.ID === participant.ID && p.Sesi === state.selectedSesi);
 
-    if (alreadyIn) {
-        Swal.fire({
-            icon: 'warning',
-            title: 'Sudah Absen',
-            text: `${participant.Nama} telah presensi pada ${state.selectedSesi}`,
-            timer: 2500,
-            showConfirmButton: false
-        });
-        return;
+    if (existingIndex !== -1) {
+        const oldStatus = state.dataPresensi[existingIndex].Status;
+        if (oldStatus === targetStatus) {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Sudah Absen',
+                text: `${participant.Nama} sudah tercatat dengan status "${targetStatus}" pada ${state.selectedSesi}`,
+                timer: 2500,
+                showConfirmButton: false
+            });
+            return;
+        }
+
+        // Jika status berubah (misal Izin -> Hadir), PERBARUI data lama
+        state.dataPresensi[existingIndex].Status = targetStatus;
+        state.dataPresensi[existingIndex].Waktu = new Date().toLocaleString('id-ID');
+        state.dataPresensi[existingIndex].Pengabsen = state.currentUser ? state.currentUser.username : 'petugas';
+    } else {
+        // Data baru
+        const newEntry = {
+            ID: participant.ID,
+            Nama: participant.Nama,
+            Kelompok: participant.Kelompok,
+            Dapukan: participant.Dapukan,
+            Sesi: state.selectedSesi,
+            Pengabsen: state.currentUser ? state.currentUser.username : 'petugas',
+            Waktu: new Date().toLocaleString('id-ID'),
+            Status: targetStatus
+        };
+        state.dataPresensi.push(newEntry);
     }
 
-    const newEntry = {
-        ID: participant.ID,
-        Nama: participant.Nama,
-        Kelompok: participant.Kelompok,
-        Dapukan: participant.Dapukan,
-        Sesi: state.selectedSesi,
-        Pengabsen: state.currentUser ? state.currentUser.username : 'petugas',
-        Waktu: new Date().toLocaleString('id-ID'),
-        Status: 'Hadir'
-    };
-
-    state.dataPresensi.push(newEntry);
     renderRecentPresensiLog();
+    if (state.activeTab === 'belumAbsen') renderBelumAbsenGrid();
 
+    // Kirim sync ke Google Sheets (Backend akan memperbarui row jika sudah ada)
     if (state.apiUrl) {
         fetch(state.apiUrl, {
             method: 'POST',
@@ -278,26 +289,75 @@ function processPresensi(scannedId) {
                 id: participant.ID,
                 sesi: state.selectedSesi,
                 pengabsen: state.currentUser ? state.currentUser.username : 'petugas',
-                status: 'Hadir'
+                status: targetStatus
             })
         }).catch(e => console.error("Sync error:", e));
     }
 
     Swal.fire({
         icon: 'success',
-        title: 'Presensi Berhasil!',
+        title: 'Presensi Diperbarui!',
         html: `
             <div class="text-left bg-slate-50 p-4 rounded-xl border border-slate-200 mt-2 space-y-1 text-sm">
                 <p><b>ID:</b> ${participant.ID}</p>
                 <p><b>Nama:</b> <span class="text-indigo-600 font-bold">${participant.Nama}</span></p>
                 <p><b>Kelompok:</b> ${participant.Kelompok}</p>
-                <p><b>Dapukan:</b> ${participant.Dapukan}</p>
-                <p><b>Sesi:</b> <span class="text-emerald-600 font-semibold">${state.selectedSesi}</span></p>
+                <p><b>Sesi:</b> ${state.selectedSesi}</p>
+                <p><b>Status:</b> <span class="text-emerald-600 font-bold">${targetStatus}</span></p>
             </div>
         `,
-        timer: 3000,
+        timer: 2500,
         timerProgressBar: true,
         showConfirmButton: false
+    });
+}
+
+function quickUpdateStatus(id, sesi, status) {
+    const participant = state.dataMaster.find(m => m.ID === id);
+    if (!participant) return;
+
+    const existingIndex = state.dataPresensi.findIndex(p => p.ID === id && p.Sesi === sesi);
+
+    if (existingIndex !== -1) {
+        state.dataPresensi[existingIndex].Status = status;
+        state.dataPresensi[existingIndex].Waktu = new Date().toLocaleString('id-ID');
+        state.dataPresensi[existingIndex].Pengabsen = state.currentUser ? state.currentUser.username : 'petugas';
+    } else {
+        state.dataPresensi.push({
+            ID: participant.ID,
+            Nama: participant.Nama,
+            Kelompok: participant.Kelompok,
+            Dapukan: participant.Dapukan,
+            Sesi: sesi,
+            Pengabsen: state.currentUser ? state.currentUser.username : 'petugas',
+            Waktu: new Date().toLocaleString('id-ID'),
+            Status: status
+        });
+    }
+
+    renderBelumAbsenGrid();
+    renderRecentPresensiLog();
+
+    if (state.apiUrl) {
+        fetch(state.apiUrl, {
+            method: 'POST',
+            body: JSON.stringify({
+                action: 'recordPresensi',
+                id: id,
+                sesi: sesi,
+                pengabsen: state.currentUser ? state.currentUser.username : 'petugas',
+                status: status
+            })
+        });
+    }
+
+    Swal.fire({
+        toast: true,
+        position: 'top-end',
+        icon: 'success',
+        title: `Status ${participant.Nama} diubah ke ${status}`,
+        showConfirmButton: false,
+        timer: 2000
     });
 }
 
@@ -318,7 +378,7 @@ function renderRecentPresensiLog() {
                 <span class="font-bold text-slate-800">${p.Nama}</span> (${p.Dapukan})
                 <div class="text-[10px] text-slate-500">${p.Kelompok} • ${p.Waktu}</div>
             </div>
-            <span class="bg-emerald-100 text-emerald-700 font-bold px-2 py-0.5 rounded text-[10px]">
+            <span class="${p.Status === 'Hadir' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'} font-bold px-2 py-0.5 rounded text-[10px]">
                 ${p.Status}
             </span>
         </div>
@@ -342,7 +402,7 @@ function renderRekapDataGrid() {
             attendances = attendances.filter(p => p.Sesi === sesiFilter);
         }
 
-        const sesiList = attendances.map(a => a.Sesi).join(', ');
+        const sesiList = attendances.map(a => `${a.Sesi} (${a.Status})`).join(', ');
 
         dapukanGroups[m.Dapukan].push({
             ID: m.ID,
@@ -396,6 +456,7 @@ function renderBelumAbsenGrid() {
     const targetSesiElem = document.getElementById('belumAbsenSesiSelect');
     const targetSesi = targetSesiElem ? targetSesiElem.value : state.selectedSesi;
 
+    // Filter peserta yang sudah absen/izin di sesi ini
     const attendedIds = state.dataPresensi
         .filter(p => p.Sesi === targetSesi)
         .map(p => p.ID);
@@ -411,7 +472,7 @@ function renderBelumAbsenGrid() {
         container.innerHTML = `
             <div class="col-span-full bg-emerald-50 border border-emerald-200 p-8 rounded-2xl text-center">
                 <i class="fa-solid fa-circle-check text-emerald-500 text-4xl mb-2"></i>
-                <h3 class="font-bold text-emerald-900 text-base">Lengkap! Semua Peserta Sudah Absen</h3>
+                <h3 class="font-bold text-emerald-900 text-base">Lengkap! Semua Peserta Sudah Memiliki Status Presensi</h3>
                 <p class="text-xs text-emerald-700 mt-1">Tidak ada peserta yang belum absen pada ${targetSesi}.</p>
             </div>
         `;
@@ -465,47 +526,6 @@ function renderBelumAbsenGrid() {
             </div>
         </div>
     `).join('');
-}
-
-function quickUpdateStatus(id, sesi, status) {
-    const participant = state.dataMaster.find(m => m.ID === id);
-    if (!participant) return;
-
-    state.dataPresensi.push({
-        ID: participant.ID,
-        Nama: participant.Nama,
-        Kelompok: participant.Kelompok,
-        Dapukan: participant.Dapukan,
-        Sesi: sesi,
-        Pengabsen: state.currentUser ? state.currentUser.username : 'petugas',
-        Waktu: new Date().toLocaleString('id-ID'),
-        Status: status
-    });
-
-    renderBelumAbsenGrid();
-    renderRecentPresensiLog();
-
-    if (state.apiUrl) {
-        fetch(state.apiUrl, {
-            method: 'POST',
-            body: JSON.stringify({
-                action: 'updateStatusUnabsent',
-                id: id,
-                sesi: sesi,
-                pengabsen: state.currentUser ? state.currentUser.username : 'petugas',
-                status: status
-            })
-        });
-    }
-
-    Swal.fire({
-        toast: true,
-        position: 'top-end',
-        icon: 'success',
-        title: `Status ${participant.Nama} diubah ke ${status}`,
-        showConfirmButton: false,
-        timer: 2000
-    });
 }
 
 function handleAddAccount(e) {
