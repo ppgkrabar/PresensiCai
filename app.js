@@ -6,7 +6,7 @@ let state = {
     selectedSesi: localStorage.getItem('last_selected_sesi') || DEFAULT_SESI,
     apiUrl: 'https://script.google.com/macros/s/AKfycbxwOn_au_V-l8v9lk712F6yXtNKt53MVkEq-4J7ws3oEk9JU7jq0EQ8LH8n9lgwaLXogQ/exec',
     html5QrcodeScanner: null,
-    // DEMO INITIAL DATA (Bisa langsung diuji coba sebelum koneksi API)
+    // DEMO INITIAL DATA
     dataMaster: [
         { ID: 'P001', Nama: 'Ahmad Fauzi', Kelompok: 'Kelompok A', Dapukan: 'Ketua' },
         { ID: 'P002', Nama: 'Siti Rahma', Kelompok: 'Kelompok A', Dapukan: 'Anggota' },
@@ -25,8 +25,12 @@ let state = {
 };
 
 window.addEventListener('DOMContentLoaded', () => {
-    document.getElementById('sesiSelect').value = state.selectedSesi;
-    document.getElementById('belumAbsenSesiSelect').value = state.selectedSesi;
+    if (document.getElementById('sesiSelect')) {
+        document.getElementById('sesiSelect').value = state.selectedSesi;
+    }
+    if (document.getElementById('belumAbsenSesiSelect')) {
+        document.getElementById('belumAbsenSesiSelect').value = state.selectedSesi;
+    }
     
     if (document.getElementById('apiEndpointUrl')) {
         document.getElementById('apiEndpointUrl').value = state.apiUrl;
@@ -63,7 +67,10 @@ function handleLogin(e) {
     const u = document.getElementById('loginUsername').value.trim();
     const p = document.getElementById('loginPassword').value.trim();
 
-    const found = state.dataAkun.find(a => a.Username === u && a.Password === p);
+    // Matching case-insensitive untuk mencegah gagal login akibat typo kapital
+    const found = state.dataAkun.find(a => 
+        a.Username.toLowerCase() === u.toLowerCase() && a.Password === p
+    );
 
     if (found) {
         state.currentUser = { username: found.Username, nama: found.Nama, role: found.Role };
@@ -75,6 +82,7 @@ function handleLogin(e) {
         document.getElementById('loginSection').classList.add('hidden');
         document.getElementById('dashboardSection').classList.remove('hidden');
 
+        // Render Navigasi sesuai role dan buka tab pertama yang diizinkan
         renderNavTabs();
         switchTab('presensi');
 
@@ -104,10 +112,12 @@ function handleLogout() {
 
 function renderNavTabs() {
     const container = document.getElementById('navTabs');
+    if (!container) return;
     container.innerHTML = '';
 
-    const isAdmin = state.currentUser.role === 'Administrator';
+    const isAdmin = state.currentUser && state.currentUser.role === 'Administrator';
 
+    // Izinkan Presensi dan Belum Absen untuk Administrator & Petugas
     const tabs = [
         { id: 'presensi', label: 'Presensi QR-Code', icon: 'fa-qrcode', show: true },
         { id: 'rekap', label: 'Data Rekap Absen', icon: 'fa-chart-pie', show: isAdmin },
@@ -119,6 +129,7 @@ function renderNavTabs() {
     tabs.forEach(tab => {
         if (tab.show) {
             const btn = document.createElement('button');
+            btn.type = 'button';
             btn.onclick = () => switchTab(tab.id);
             btn.className = `px-4 py-2.5 rounded-xl text-xs font-semibold flex items-center gap-2 transition ${
                 state.activeTab === tab.id ? 'bg-indigo-600 text-white shadow' : 'text-slate-600 hover:bg-slate-100'
@@ -131,40 +142,63 @@ function renderNavTabs() {
 }
 
 function switchTab(tabId) {
-    state.activeTab = tabId;
-    
-    document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
-
-    document.querySelectorAll('#navTabs button').forEach(btn => {
-        btn.className = btn.className.replace('bg-indigo-600 text-white shadow', 'text-slate-600 hover:bg-slate-100');
-    });
-
-    const activeBtn = document.getElementById(`navBtn_${tabId}`);
-    if (activeBtn) {
-        activeBtn.className = activeBtn.className.replace('text-slate-600 hover:bg-slate-100', 'bg-indigo-600 text-white shadow');
+    // Proteksi Hak Akses (Security Guard)
+    const isAdmin = state.currentUser && state.currentUser.role === 'Administrator';
+    if ((tabId === 'rekap' || tabId === 'kelolaAkun') && !isAdmin) {
+        Swal.fire('Akses Ditolak', 'Halaman ini hanya dapat diakses oleh Administrator.', 'warning');
+        return;
     }
 
+    state.activeTab = tabId;
+    
+    // Sembunyikan seluruh tab-content
+    document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+
+    // Reset style semua tombol navigasi yang ada
+    document.querySelectorAll('#navTabs button').forEach(btn => {
+        btn.className = 'px-4 py-2.5 rounded-xl text-xs font-semibold flex items-center gap-2 transition text-slate-600 hover:bg-slate-100';
+    });
+
+    // Highlight tombol aktif
+    const activeBtn = document.getElementById(`navBtn_${tabId}`);
+    if (activeBtn) {
+        activeBtn.className = 'px-4 py-2.5 rounded-xl text-xs font-semibold flex items-center gap-2 transition bg-indigo-600 text-white shadow';
+    }
+
+    // Tampilkan tab yang dipilih
     if (tabId === 'presensi') {
-        document.getElementById('tabPresensi').classList.remove('hidden');
+        const el = document.getElementById('tabPresensi');
+        if (el) el.classList.remove('hidden');
+        renderRecentPresensiLog();
     } else if (tabId === 'rekap') {
-        document.getElementById('tabDataAbsen').classList.remove('hidden');
+        const el = document.getElementById('tabDataAbsen');
+        if (el) el.classList.remove('hidden');
         renderRekapDataGrid();
     } else if (tabId === 'belumAbsen') {
-        document.getElementById('tabBelumAbsen').classList.remove('hidden');
+        const el = document.getElementById('tabBelumAbsen');
+        if (el) el.classList.remove('hidden');
         renderBelumAbsenGrid();
     } else if (tabId === 'kelolaAkun') {
-        document.getElementById('tabKelolaAkun').classList.remove('hidden');
+        const el = document.getElementById('tabKelolaAkun');
+        if (el) el.classList.remove('hidden');
         renderAccountList();
     } else if (tabId === 'panduan') {
-        document.getElementById('tabPanduan').classList.remove('hidden');
+        const el = document.getElementById('tabPanduan');
+        if (el) el.classList.remove('hidden');
     }
 }
 
 function handleSesiChange(val) {
     state.selectedSesi = val;
     localStorage.setItem('last_selected_sesi', val);
-    document.getElementById('belumAbsenSesiSelect').value = val;
+    
+    const elemBelumAbsen = document.getElementById('belumAbsenSesiSelect');
+    if (elemBelumAbsen) elemBelumAbsen.value = val;
+    
     renderRecentPresensiLog();
+    if (state.activeTab === 'belumAbsen') {
+        renderBelumAbsenGrid();
+    }
 }
 
 function startScanner() {
@@ -287,6 +321,8 @@ function processPresensi(scannedId) {
 
 function renderRecentPresensiLog() {
     const list = document.getElementById('recentPresensiList');
+    if (!list) return;
+    
     const filtered = state.dataPresensi.filter(p => p.Sesi === state.selectedSesi);
 
     if (filtered.length === 0) {
@@ -309,7 +345,10 @@ function renderRecentPresensiLog() {
 
 function renderRekapDataGrid() {
     const container = document.getElementById('rekapGridContainer');
-    const sesiFilter = document.getElementById('rekapSesiFilter').value;
+    if (!container) return;
+    
+    const filterElem = document.getElementById('rekapSesiFilter');
+    const sesiFilter = filterElem ? filterElem.value : 'ALL';
 
     const dapukanGroups = {};
 
@@ -370,7 +409,10 @@ function renderRekapDataGrid() {
 
 function renderBelumAbsenGrid() {
     const container = document.getElementById('belumAbsenGridContainer');
-    const targetSesi = document.getElementById('belumAbsenSesiSelect').value;
+    if (!container) return;
+
+    const targetSesiElem = document.getElementById('belumAbsenSesiSelect');
+    const targetSesi = targetSesiElem ? targetSesiElem.value : state.selectedSesi;
 
     const attendedIds = state.dataPresensi
         .filter(p => p.Sesi === targetSesi)
@@ -378,7 +420,10 @@ function renderBelumAbsenGrid() {
 
     const unabsentList = state.dataMaster.filter(m => !attendedIds.includes(m.ID));
 
-    document.getElementById('belumAbsenBadge').innerText = `Total Belum Absen: ${unabsentList.length} Orang`;
+    const badgeElem = document.getElementById('belumAbsenBadge');
+    if (badgeElem) {
+        badgeElem.innerText = `Total Belum Absen: ${unabsentList.length} Orang`;
+    }
 
     if (unabsentList.length === 0) {
         container.innerHTML = `
@@ -456,6 +501,7 @@ function quickUpdateStatus(id, sesi, status) {
     });
 
     renderBelumAbsenGrid();
+    renderRecentPresensiLog();
 
     if (state.apiUrl) {
         fetch(state.apiUrl, {
@@ -487,7 +533,7 @@ function handleAddAccount(e) {
     const password = document.getElementById('accPassword').value.trim();
     const role = document.getElementById('accRole').value;
 
-    if (state.dataAkun.some(a => a.Username === username)) {
+    if (state.dataAkun.some(a => a.Username.toLowerCase() === username.toLowerCase())) {
         Swal.fire('Gagal', 'Username sudah terdaftar!', 'error');
         return;
     }
@@ -510,6 +556,8 @@ function handleAddAccount(e) {
 
 function renderAccountList() {
     const body = document.getElementById('accountTableBody');
+    if (!body) return;
+
     body.innerHTML = state.dataAkun.map((a, idx) => `
         <tr class="hover:bg-slate-50">
             <td class="p-3 text-slate-400">${idx + 1}</td>
@@ -536,6 +584,8 @@ function closeWordPressViewModal() {
 
 function renderWordPressViewData() {
     const container = document.getElementById('wpContentContainer');
+    if (!container) return;
+
     const targetSesi = document.getElementById('wpSesiSelect').value;
 
     const attendedIds = state.dataPresensi
