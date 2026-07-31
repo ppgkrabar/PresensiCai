@@ -1,11 +1,11 @@
 const DEFAULT_SESI = "Sesi 1 (Registrasi)";
 
 let state = {
-    // Ambil session user yang tersimpan di sessionStorage (jika ada)
+    // Memulihkan sesi login dari sessionStorage jika halaman di-refresh
     currentUser: JSON.parse(sessionStorage.getItem('session_user')) || null,
     activeTab: 'presensi',
     selectedSesi: localStorage.getItem('last_selected_sesi') || DEFAULT_SESI,
-    apiUrl: 'https://script.google.com/macros/s/AKfycbxwOn_au_V-l8v9lk712F6yXtNKt53MVkEq-4J7ws3oEk9JU7jq0EQ8LH8n9lgwaLXogQ/exec',
+    apiUrl: 'https://script.google.com/macros/s/AKfycbxuoGOgzWhlcaHV7pGdOEWiKalQKOmiHZEhF01PIS4Tc4ldYTZKX8CxiT2qpffnuhW9NQ/exec',
     html5QrcodeScanner: null,
     dataMaster: [],
     dataPresensi: [],
@@ -23,7 +23,7 @@ window.addEventListener('DOMContentLoaded', () => {
         document.getElementById('belumAbsenSesiSelect').value = state.selectedSesi;
     }
 
-    // CEK SESI LOGIN SAAT HALAMAN DILOAD / REFRESH
+    // Cek sesi login saat halaman dimuat
     checkExistingSession();
 
     if (state.apiUrl) {
@@ -31,19 +31,15 @@ window.addEventListener('DOMContentLoaded', () => {
     }
 });
 
-// Fungsi untuk memeriksa dan memulihkan sesi login saat refresh
 function checkExistingSession() {
     if (state.currentUser) {
-        // Tampilkan elemen header user
         document.getElementById('userInfoHeader')?.classList.remove('hidden');
         document.getElementById('headerName').innerText = state.currentUser.nama;
         document.getElementById('headerRole').innerText = state.currentUser.role;
         
-        // Pindahkan dari halaman login ke dashboard
         document.getElementById('loginSection')?.classList.add('hidden');
         document.getElementById('dashboardSection')?.classList.remove('hidden');
 
-        // Render navigasi tab & buka tab presensi
         renderNavTabs();
         switchTab('presensi');
     }
@@ -60,7 +56,6 @@ async function fetchInitialDataFromGAS() {
             if (result.akun && result.akun.length > 0) state.dataAkun = result.akun;
             console.log("Data berhasil dimuat dari Google Sheets!");
             
-            // Re-render tampilan setelah data dari GAS masuk
             if (state.currentUser) {
                 if (state.activeTab === 'presensi') renderRecentPresensiLog();
                 if (state.activeTab === 'belumAbsen') renderBelumAbsenGrid();
@@ -100,7 +95,6 @@ function handleLogin(e) {
         const userObj = { username: found.Username, nama: found.Nama, role: found.Role };
         state.currentUser = userObj;
         
-        // FITUR UTAMA: SIMPAN KE SESSIONSTORAGE (Tahan refresh, hapus saat tab ditutup)
         sessionStorage.setItem('session_user', JSON.stringify(userObj));
 
         document.getElementById('userInfoHeader').classList.remove('hidden');
@@ -132,8 +126,6 @@ function handleLogin(e) {
 function handleLogout() {
     stopScanner();
     state.currentUser = null;
-    
-    // HAPPUS SESI DARi SESSIONSTORAGE SAAT LOGOUT MANUAL
     sessionStorage.removeItem('session_user');
 
     if (document.getElementById('loginUsername')) document.getElementById('loginUsername').value = '';
@@ -265,8 +257,9 @@ function handleManualSubmit(e) {
     document.getElementById('manualIdInput').value = '';
 }
 
+// LOGIKA PRESENSI ANTI-DUPLIKAT LOKAL (SENSITIF TERHADAP SPASI DAN KAPITALISASI)
 function processPresensi(scannedId, targetStatus = 'Hadir') {
-    const participant = state.dataMaster.find(m => String(m.ID).toLowerCase() === scannedId.toLowerCase());
+    const participant = state.dataMaster.find(m => String(m.ID).trim().toLowerCase() === String(scannedId).trim().toLowerCase());
 
     if (!participant) {
         Swal.fire({
@@ -279,7 +272,14 @@ function processPresensi(scannedId, targetStatus = 'Hadir') {
         return;
     }
 
-    const existingIndex = state.dataPresensi.findIndex(p => p.ID === participant.ID && p.Sesi === state.selectedSesi);
+    const cleanScannedId = String(participant.ID).trim().toLowerCase();
+    const cleanSesi = String(state.selectedSesi).trim().toLowerCase();
+
+    // Mencocokkan data lokal berdasarkan ID dan Sesi
+    const existingIndex = state.dataPresensi.findIndex(p => 
+        String(p.ID).trim().toLowerCase() === cleanScannedId && 
+        String(p.Sesi).trim().toLowerCase() === cleanSesi
+    );
 
     if (existingIndex !== -1) {
         const oldStatus = state.dataPresensi[existingIndex].Status;
@@ -294,6 +294,7 @@ function processPresensi(scannedId, targetStatus = 'Hadir') {
             return;
         }
 
+        // Timpa data lama dengan data status terbaru
         state.dataPresensi[existingIndex].Status = targetStatus;
         state.dataPresensi[existingIndex].Waktu = new Date().toLocaleString('id-ID');
         state.dataPresensi[existingIndex].Pengabsen = state.currentUser ? state.currentUser.username : 'petugas';
@@ -346,10 +347,16 @@ function processPresensi(scannedId, targetStatus = 'Hadir') {
 }
 
 function quickUpdateStatus(id, sesi, status) {
-    const participant = state.dataMaster.find(m => m.ID === id);
+    const participant = state.dataMaster.find(m => String(m.ID).trim().toLowerCase() === String(id).trim().toLowerCase());
     if (!participant) return;
 
-    const existingIndex = state.dataPresensi.findIndex(p => p.ID === id && p.Sesi === sesi);
+    const cleanId = String(id).trim().toLowerCase();
+    const cleanSesi = String(sesi).trim().toLowerCase();
+
+    const existingIndex = state.dataPresensi.findIndex(p => 
+        String(p.ID).trim().toLowerCase() === cleanId && 
+        String(p.Sesi).trim().toLowerCase() === cleanSesi
+    );
 
     if (existingIndex !== -1) {
         state.dataPresensi[existingIndex].Status = status;
@@ -398,7 +405,7 @@ function renderRecentPresensiLog() {
     const list = document.getElementById('recentPresensiList');
     if (!list) return;
     
-    const filtered = state.dataPresensi.filter(p => p.Sesi === state.selectedSesi);
+    const filtered = state.dataPresensi.filter(p => String(p.Sesi).trim().toLowerCase() === String(state.selectedSesi).trim().toLowerCase());
 
     if (filtered.length === 0) {
         list.innerHTML = `<p class="text-xs text-slate-400 italic">Belum ada data presensi yang masuk pada sesi ini.</p>`;
@@ -430,9 +437,9 @@ function renderRekapDataGrid() {
     state.dataMaster.forEach(m => {
         if (!dapukanGroups[m.Dapukan]) dapukanGroups[m.Dapukan] = [];
 
-        let attendances = state.dataPresensi.filter(p => p.ID === m.ID);
+        let attendances = state.dataPresensi.filter(p => String(p.ID).trim().toLowerCase() === String(m.ID).trim().toLowerCase());
         if (sesiFilter !== 'ALL') {
-            attendances = attendances.filter(p => p.Sesi === sesiFilter);
+            attendances = attendances.filter(p => String(p.Sesi).trim().toLowerCase() === String(sesiFilter).trim().toLowerCase());
         }
 
         const sesiList = attendances.map(a => `${a.Sesi} (${a.Status})`).join(', ');
@@ -482,6 +489,7 @@ function renderRekapDataGrid() {
     `).join('');
 }
 
+// RENDER GRID PESERTA BELUM ABSEN TERMASUK FILTER SEARCH REAL-TIME
 function renderBelumAbsenGrid() {
     const container = document.getElementById('belumAbsenGridContainer');
     if (!container) return;
@@ -489,25 +497,25 @@ function renderBelumAbsenGrid() {
     const targetSesiElem = document.getElementById('belumAbsenSesiSelect');
     const targetSesi = targetSesiElem ? targetSesiElem.value : state.selectedSesi;
 
-    // Ambil keyword pencarian (jika ada)
     const searchInput = document.getElementById('searchBelumAbsenInput');
     const searchQuery = searchInput ? searchInput.value.trim().toLowerCase() : '';
 
-    // Ambil ID peserta yang sudah presensi/izin di sesi ini
+    const cleanTargetSesi = String(targetSesi).trim().toLowerCase();
+
+    // Dapatkan daftar ID yang sudah absen/izin di sesi ini
     const attendedIds = state.dataPresensi
-        .filter(p => p.Sesi === targetSesi)
-        .map(p => p.ID);
+        .filter(p => String(p.Sesi).trim().toLowerCase() === cleanTargetSesi)
+        .map(p => String(p.ID).trim().toLowerCase());
 
-    // Filter peserta yang belum absen
-    let unabsentList = state.dataMaster.filter(m => !attendedIds.includes(m.ID));
+    // Filter peserta dari DataMaster yang belum ada di daftar attendedIds
+    let unabsentList = state.dataMaster.filter(m => !attendedIds.includes(String(m.ID).trim().toLowerCase()));
 
-    // Update Badge Total Keseluruhan Belum Absen (sebelum dipotong keyword pencarian)
     const badgeElem = document.getElementById('belumAbsenBadge');
     if (badgeElem) {
         badgeElem.innerText = `Total Belum Absen: ${unabsentList.length} Orang`;
     }
 
-    // Filter lanjutan berdasarkan Nama atau Kelompok jika kolom pencarian diisi
+    // Filter berdasarkan kata kunci pencarian (Nama atau Kelompok)
     if (searchQuery) {
         unabsentList = unabsentList.filter(m => 
             String(m.Nama).toLowerCase().includes(searchQuery) ||
@@ -515,7 +523,6 @@ function renderBelumAbsenGrid() {
         );
     }
 
-    // Tampilan jika tidak ada data yang cocok dengan pencarian / seluruhnya sudah absen
     if (unabsentList.length === 0) {
         if (searchQuery) {
             container.innerHTML = `
@@ -537,14 +544,12 @@ function renderBelumAbsenGrid() {
         return;
     }
 
-    // Kelompokkan peserta berdasarkan Dapukan
     const grouped = {};
     unabsentList.forEach(m => {
         if (!grouped[m.Dapukan]) grouped[m.Dapukan] = [];
         grouped[m.Dapukan].push(m);
     });
 
-    // Render Grid per Dapukan
     container.innerHTML = Object.keys(grouped).map(dapukan => `
         <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
             <div class="flex justify-between items-center mb-3 border-b pb-2">
@@ -587,6 +592,7 @@ function renderBelumAbsenGrid() {
         </div>
     `).join('');
 }
+
 function handleAddAccount(e) {
     e.preventDefault();
     const nama = document.getElementById('accNama').value.trim();
@@ -648,12 +654,13 @@ function renderWordPressViewData() {
     if (!container) return;
 
     const targetSesi = document.getElementById('wpSesiSelect').value;
+    const cleanTargetSesi = String(targetSesi).trim().toLowerCase();
 
     const attendedIds = state.dataPresensi
-        .filter(p => p.Sesi === targetSesi)
-        .map(p => p.ID);
+        .filter(p => String(p.Sesi).trim().toLowerCase() === cleanTargetSesi)
+        .map(p => String(p.ID).trim().toLowerCase());
 
-    const unabsent = state.dataMaster.filter(m => !attendedIds.includes(m.ID));
+    const unabsent = state.dataMaster.filter(m => !attendedIds.includes(String(m.ID).trim().toLowerCase()));
 
     if (unabsent.length === 0) {
         container.innerHTML = `
