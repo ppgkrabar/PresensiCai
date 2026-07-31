@@ -7,6 +7,7 @@ let state = {
     selectedSesi: localStorage.getItem('last_selected_sesi') || DEFAULT_SESI,
     apiUrl: 'https://script.google.com/macros/s/AKfycbxuoGOgzWhlcaHV7pGdOEWiKalQKOmiHZEhF01PIS4Tc4ldYTZKX8CxiT2qpffnuhW9NQ/exec',
     html5QrcodeScanner: null,
+    isProcessingScan: false, // FLAG MENCEGAH SCAN GANDA/SPAM POPUP
     dataMaster: [],
     dataPresensi: [],
     dataAkun: [
@@ -242,6 +243,19 @@ function stopScanner() {
 }
 
 function onScanSuccess(decodedText) {
+    // MENCEGAH SCAN BERKALI-KALI (ANTI-SPAM POPUP)
+    if (state.isProcessingScan) return;
+    
+    state.isProcessingScan = true;
+
+    if (state.html5QrcodeScanner) {
+        try {
+            state.html5QrcodeScanner.pause(true);
+        } catch (e) {
+            console.log("Pause error:", e);
+        }
+    }
+
     processPresensi(decodedText.trim());
 }
 
@@ -257,17 +271,32 @@ function handleManualSubmit(e) {
     document.getElementById('manualIdInput').value = '';
 }
 
-// LOGIKA PRESENSI ANTI-DUPLIKAT LOKAL (SENSITIF TERHADAP SPASI DAN KAPITALISASI)
+// LOGIKA PRESENSI ANTI-DUPLIKAT LOKAL (MENIMPA/OVERWRITE STATUS LAMA)
 function processPresensi(scannedId, targetStatus = 'Hadir') {
     const participant = state.dataMaster.find(m => String(m.ID).trim().toLowerCase() === String(scannedId).trim().toLowerCase());
+
+    const resumeScanner = () => {
+        setTimeout(() => {
+            state.isProcessingScan = false;
+            if (state.html5QrcodeScanner) {
+                try {
+                    state.html5QrcodeScanner.resume();
+                } catch (e) {
+                    console.log("Resume error:", e);
+                }
+            }
+        }, 2000); // Jeda 2 detik sebelum dapat memindai peserta berikutnya
+    };
 
     if (!participant) {
         Swal.fire({
             icon: 'error',
             title: 'ID Tidak Ditemukan!',
             text: `Peserta dengan ID "${scannedId}" tidak terdaftar di DataMaster.`,
-            timer: 2500,
+            timer: 2000,
             showConfirmButton: false
+        }).then(() => {
+            resumeScanner();
         });
         return;
     }
@@ -288,13 +317,15 @@ function processPresensi(scannedId, targetStatus = 'Hadir') {
                 icon: 'warning',
                 title: 'Sudah Absen',
                 text: `${participant.Nama} sudah tercatat dengan status "${targetStatus}" pada ${state.selectedSesi}`,
-                timer: 2500,
+                timer: 2000,
                 showConfirmButton: false
+            }).then(() => {
+                resumeScanner();
             });
             return;
         }
 
-        // Timpa data lama dengan data status terbaru
+        // Timpa status lama dengan data status terbaru
         state.dataPresensi[existingIndex].Status = targetStatus;
         state.dataPresensi[existingIndex].Waktu = new Date().toLocaleString('id-ID');
         state.dataPresensi[existingIndex].Pengabsen = state.currentUser ? state.currentUser.username : 'petugas';
@@ -340,9 +371,11 @@ function processPresensi(scannedId, targetStatus = 'Hadir') {
                 <p><b>Status:</b> <span class="text-emerald-600 font-bold">${targetStatus}</span></p>
             </div>
         `,
-        timer: 2500,
+        timer: 2000,
         timerProgressBar: true,
         showConfirmButton: false
+    }).then(() => {
+        resumeScanner();
     });
 }
 
