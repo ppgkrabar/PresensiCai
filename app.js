@@ -489,34 +489,62 @@ function renderBelumAbsenGrid() {
     const targetSesiElem = document.getElementById('belumAbsenSesiSelect');
     const targetSesi = targetSesiElem ? targetSesiElem.value : state.selectedSesi;
 
+    // Ambil keyword pencarian (jika ada)
+    const searchInput = document.getElementById('searchBelumAbsenInput');
+    const searchQuery = searchInput ? searchInput.value.trim().toLowerCase() : '';
+
+    // Ambil ID peserta yang sudah presensi/izin di sesi ini
     const attendedIds = state.dataPresensi
         .filter(p => p.Sesi === targetSesi)
         .map(p => p.ID);
 
-    const unabsentList = state.dataMaster.filter(m => !attendedIds.includes(m.ID));
+    // Filter peserta yang belum absen
+    let unabsentList = state.dataMaster.filter(m => !attendedIds.includes(m.ID));
 
+    // Update Badge Total Keseluruhan Belum Absen (sebelum dipotong keyword pencarian)
     const badgeElem = document.getElementById('belumAbsenBadge');
     if (badgeElem) {
         badgeElem.innerText = `Total Belum Absen: ${unabsentList.length} Orang`;
     }
 
+    // Filter lanjutan berdasarkan Nama atau Kelompok jika kolom pencarian diisi
+    if (searchQuery) {
+        unabsentList = unabsentList.filter(m => 
+            String(m.Nama).toLowerCase().includes(searchQuery) ||
+            String(m.Kelompok).toLowerCase().includes(searchQuery)
+        );
+    }
+
+    // Tampilan jika tidak ada data yang cocok dengan pencarian / seluruhnya sudah absen
     if (unabsentList.length === 0) {
-        container.innerHTML = `
-            <div class="col-span-full bg-emerald-50 border border-emerald-200 p-8 rounded-2xl text-center">
-                <i class="fa-solid fa-circle-check text-emerald-500 text-4xl mb-2"></i>
-                <h3 class="font-bold text-emerald-900 text-base">Lengkap! Semua Peserta Sudah Memiliki Status Presensi</h3>
-                <p class="text-xs text-emerald-700 mt-1">Tidak ada peserta yang belum absen pada ${targetSesi}.</p>
-            </div>
-        `;
+        if (searchQuery) {
+            container.innerHTML = `
+                <div class="col-span-full bg-slate-50 border border-slate-200 p-8 rounded-2xl text-center">
+                    <i class="fa-solid fa-user-slash text-slate-400 text-3xl mb-2"></i>
+                    <h3 class="font-bold text-slate-700 text-sm">Peserta Tidak Ditemukan</h3>
+                    <p class="text-xs text-slate-500 mt-1">Tidak ditemukan peserta dengan kata kunci "${searchQuery}" pada ${targetSesi}.</p>
+                </div>
+            `;
+        } else {
+            container.innerHTML = `
+                <div class="col-span-full bg-emerald-50 border border-emerald-200 p-8 rounded-2xl text-center">
+                    <i class="fa-solid fa-circle-check text-emerald-500 text-4xl mb-2"></i>
+                    <h3 class="font-bold text-emerald-900 text-base">Lengkap! Semua Peserta Sudah Memiliki Status Presensi</h3>
+                    <p class="text-xs text-emerald-700 mt-1">Tidak ada peserta yang belum absen pada ${targetSesi}.</p>
+                </div>
+            `;
+        }
         return;
     }
 
+    // Kelompokkan peserta berdasarkan Dapukan
     const grouped = {};
     unabsentList.forEach(m => {
         if (!grouped[m.Dapukan]) grouped[m.Dapukan] = [];
         grouped[m.Dapukan].push(m);
     });
 
+    // Render Grid per Dapukan
     container.innerHTML = Object.keys(grouped).map(dapukan => `
         <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
             <div class="flex justify-between items-center mb-3 border-b pb-2">
@@ -559,7 +587,6 @@ function renderBelumAbsenGrid() {
         </div>
     `).join('');
 }
-
 function handleAddAccount(e) {
     e.preventDefault();
     const nama = document.getElementById('accNama').value.trim();
