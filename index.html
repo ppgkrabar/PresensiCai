@@ -3,7 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Presensi Kegiatan CAI 2026</title>
+    <!-- Judul Tab Browser seperti di gambar -->
+    <title>Krabar | CAI 2026</title>
+    
+    <!-- Favicon / Logo Kecil di Tab Browser -->
+    <link rel="icon" type="image/png" href="logo PPG.png">
+
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- FontAwesome CDN -->
@@ -24,19 +29,23 @@
 </head>
 <body class="bg-slate-100 min-h-screen text-slate-800 flex flex-col">
 
-    <!-- TOP NAVIGATION BAR -->
+    <!-- TOP NAVIGATION BAR (Header Biru / Indigo seperti Gambar) -->
     <header class="bg-indigo-700 text-white shadow-lg sticky top-0 z-40">
         <div class="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center">
+            
+            <!-- Sisi Kiri: Logo PPG & Judul Presensi CAI 2026 -->
             <div class="flex items-center space-x-3">
-                <div class="bg-white/20 p-2 rounded-lg">
-                    <i class="fa-solid fa-qrcode text-2xl text-amber-300"></i>
+                <!-- Container Logo PPG berpendar transparan -->
+                <div class="bg-white/20 p-2 rounded-2xl flex items-center justify-center w-12 h-12">
+                    <img src="logo PPG.png" alt="Logo PPG" class="w-10 h-10 object-contain rounded-xl" onerror="this.src='https://via.placeholder.com/40?text=PPG'">
                 </div>
                 <div>
-                    <h1 class="font-bold text-lg leading-tight">Presensi Kegiatan</h1>
-                    <p class="text-xs text-indigo-200" id="userBadge">Sistem Presensi Digital</p>
+                    <h1 class="font-bold text-xl leading-tight tracking-wide">Presensi CAI 2026</h1>
+                    <p class="text-xs text-indigo-200 font-medium" id="userBadge">Karanganyar Barat</p>
                 </div>
             </div>
             
+            <!-- Sisi Kanan: User Info & Tombol Logout -->
             <div id="userInfoHeader" class="hidden flex items-center space-x-3">
                 <div class="text-right hidden sm:block">
                     <p class="text-sm font-semibold" id="headerName">-</p>
@@ -89,7 +98,7 @@
             
             <div class="bg-white rounded-2xl p-2 shadow-sm border border-slate-200 overflow-x-auto">
                 <nav id="navTabs" class="flex space-x-1 min-w-max">
-                    <!-- Nav Tabs Render Dinamis -->
+                    <!-- Nav Tabs Render Dinamis via app.js -->
                 </nav>
             </div>
 
