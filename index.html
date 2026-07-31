@@ -205,27 +205,46 @@
             </div>
 
             <!-- TAB 3: PESERTA BELUM ABSEN -->
-            <div id="tabBelumAbsen" class="tab-content hidden space-y-6">
-                <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex flex-wrap justify-between items-center gap-4">
-                    <div>
-                        <h2 class="text-lg font-bold text-slate-800">Daftar Peserta Belum Absen</h2>
-                        <p class="text-xs text-slate-500">Pilih sesi kegiatan untuk menampilkan data peserta</p>
-                    </div>
-                    <div class="flex items-center gap-3">
-                        <span id="belumAbsenBadge" class="bg-rose-100 text-rose-700 font-bold px-3 py-1 rounded-full text-xs">
-                            Total Belum Absen: 0 Orang
-                        </span>
-                        <select id="belumAbsenSesiSelect" onchange="renderBelumAbsenGrid()" class="bg-indigo-50 border border-indigo-200 text-indigo-900 rounded-lg px-3 py-1.5 text-xs font-semibold outline-none">
-                            <option value="Sesi 1 (Registrasi)">Sesi 1 (Registrasi)</option>
-                            <option value="Sesi 2 (Malam)">Sesi 2 (Malam)</option>
-                            <option value="Sesi 3 (Pagi)">Sesi 3 (Pagi)</option>
-                            <option value="Sesi FGD">Sesi FGD</option>
-                        </select>
-                    </div>
-                </div>
-
-                <div id="belumAbsenGridContainer" class="grid grid-cols-1 md:grid-cols-2 gap-6"></div>
+<!-- TAB 3: PESERTA BELUM ABSEN -->
+<div id="tabBelumAbsen" class="tab-content hidden space-y-6">
+    <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 space-y-4">
+        <!-- Baris Atas: Judul, Badge Total, dan Pilih Sesi -->
+        <div class="flex flex-wrap justify-between items-center gap-4">
+            <div>
+                <h2 class="text-lg font-bold text-slate-800">Daftar Peserta Belum Absen</h2>
+                <p class="text-xs text-slate-500">Pilih sesi kegiatan untuk menampilkan data peserta</p>
             </div>
+            <div class="flex items-center gap-3">
+                <span id="belumAbsenBadge" class="bg-rose-100 text-rose-700 font-bold px-3 py-1 rounded-full text-xs">
+                    Total Belum Absen: 0 Orang
+                </span>
+                <select id="belumAbsenSesiSelect" onchange="renderBelumAbsenGrid()" class="bg-indigo-50 border border-indigo-200 text-indigo-900 rounded-lg px-3 py-1.5 text-xs font-semibold outline-none">
+                    <option value="Sesi 1 (Registrasi)">Sesi 1 (Registrasi)</option>
+                    <option value="Sesi 2 (Malam)">Sesi 2 (Malam)</option>
+                    <option value="Sesi 3 (Pagi)">Sesi 3 (Pagi)</option>
+                    <option value="Sesi FGD">Sesi FGD</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- Baris Bawah: Input Search Nama / Kelompok (Fitur Baru) -->
+        <div class="border-t pt-3 flex justify-end">
+            <div class="relative w-full md:w-80">
+                <i class="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-slate-400 text-xs"></i>
+                <input 
+                    type="text" 
+                    id="searchBelumAbsenInput" 
+                    oninput="renderBelumAbsenGrid()" 
+                    placeholder="Cari berdasarkan nama atau kelompok..." 
+                    class="w-full pl-9 pr-3 py-2 border border-slate-300 rounded-xl text-xs outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"
+                >
+            </div>
+        </div>
+    </div>
+
+    <!-- Grid Tempat Menampilkan Daftar Peserta -->
+    <div id="belumAbsenGridContainer" class="grid grid-cols-1 md:grid-cols-2 gap-6"></div>
+</div>
 
             <!-- TAB 4: KELOLA AKUN -->
             <div id="tabKelolaAkun" class="tab-content hidden space-y-6">
